@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>一起找出 + 號的好朋友</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: linear-gradient(145deg, #0a1f1a 0%, #1e3b2f 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: 'Segoe UI', 'Microsoft JhengHei', 'PingFang TC', 'Noto Sans TC', sans-serif;
+      padding: 16px;
+    }
+
+    .game-container {
+      background: #1f4a3a;
+      padding: 20px 20px 25px;
+      border-radius: 64px 64px 48px 48px;
+      box-shadow: 0 20px 30px rgba(0, 0, 0, 0.6), inset 0 2px 5px rgba(255, 255, 200, 0.2);
+      border: 2px solid #e4b87a;
+    }
+
+    .game-panel {
+      background: #2b2e1f;
+      border-radius: 48px 48px 36px 36px;
+      padding: 16px 16px 8px;
+      box-shadow: inset 0 0 15px #00000077, 0 8px 0 #0f0f0a;
+    }
+
+    canvas {
+      display: block;
+      margin: 0 auto;
+      width: 100%;
+      max-width: 700px;
+      height: auto;
+      border-radius: 28px;
+      background: radial-gradient(circle at 30% 20%, #4f7b5e, #1b3729);
+      box-shadow: inset 0 0 30px #00000099, 0 5px 0 #0b130e;
+      cursor: pointer;
+      touch-action: none;
+    }
+
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 20px 0;
+      color: #f9eec1;
+      text-shadow: 3px 3px 0 #2d2d1a;
+      font-weight: bold;
+      letter-spacing: 1px;
+      font-size: 1.5rem;
+    }
+
+    .score-box, .timer-box, .total-box {
+      background: #1f2c1b;
+      padding: 8px 24px;
+      border-radius: 40px;
+      box-shadow: inset 0 -4px 0 #0c120c, 0 5px 0 #0c0f09;
+      border: 1px solid #b3a06b;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .timer-box span {
+      font-size: 2rem;
+      line-height: 1;
+      color: #7ec8e3;
+      text-shadow: 0 0 8px #b3e0ff;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .timer-box.warning span {
+      color: #ff5e5e;
+      text-shadow: 0 0 8px #ffbaba;
+      animation: pulse 0.5s infinite alternate;
+    }
+
+    @keyframes pulse {
+      from { opacity: 1; }
+      to { opacity: 0.5; }
+    }
+
+    .total-box span {
+      font-size: 1.8rem;
+      line-height: 1;
+      color: #f9eec1;
+    }
+
+    .restart-btn {
+      background: #e6b442;
+      border: none;
+      border-radius: 40px;
+      padding: 8px 26px;
+      font-weight: 800;
+      font-size: 1.2rem;
+      color: #2d2d0a;
+      box-shadow: 0 6px 0 #a07d2c, 0 8px 12px black;
+      cursor: pointer;
+      transition: all 0.05s ease;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      border: 1px solid #ffe4a1;
+    }
+
+    .restart-btn:active {
+      transform: translateY(5px);
+      box-shadow: 0 1px 0 #a07d2c, 0 5px 10px black;
+    }
+
+    .restart-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: 0 6px 0 #a07d2c, 0 8px 12px black;
+    }
+
+    .hint {
+      text-align: center;
+      color: #c2b280;
+      font-size: 1rem;
+      font-weight: 500;
+      margin-top: 8px;
+      letter-spacing: 2px;
+      text-shadow: 1px 1px 0 #192218;
+    }
+
+    .title {
+      text-align: center;
+      font-size: 2.2rem;
+      font-weight: 900;
+      color: #f9eec1;
+      text-shadow: 4px 4px 0 #a07d2c, 0 0 20px #e6b442;
+      margin-bottom: 10px;
+      letter-spacing: 3px;
+    }
+
+    .button-row {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-top: 18px;
+    }
+  </style>
+</head>
+<body>
+<div class="game-container">
+  <div class="title">一起找出 + 號的好朋友</div>
+  <div class="game-panel">
+    <canvas id="gameCanvas" width="700" height="450"></canvas>
+    <div class="status-bar">
+      <div class="score-box">🍉 <span id="scoreDisplay">0</span></div>
+      <div class="timer-box" id="timerBox">⏱️ <span id="timerDisplay">15</span></div>
+      <div class="total-box">🏆 <span id="totalDisplay">0</span></div>
+    </div>
+  </div>
+  <div class="button-row">
+    <button class="restart-btn" id="startButton">▶ 開始遊戲</button>
+  </div>
+  <div class="hint">⚡ 點擊「共」+1 分 · 點錯 -1 分 · 每局 15 秒 ⚡</div>
+</div>
+
+<script>
+  (function() {
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreSpan = document.getElementById('scoreDisplay');
+    const timerSpan = document.getElementById('timerDisplay');
+    const totalSpan = document.getElementById('totalDisplay');
+    const timerBox = document.getElementById('timerBox');
+    const startButton = document.getElementById('startButton');
+
+    // ----- 遊戲尺寸與常數 -----
+    const CW = 700;
+    const CH = 450;
+    const GRAVITY = 0.25;
+    const MAX_FRUITS = 16;
+    const FRUIT_RADIUS = 45;
+    const CLICK_RADIUS = 55;      // 點擊判定半徑
+    const GAME_DURATION = 15;
+
+    // ----- 遊戲狀態 -----
+    let score = 0;
+    let totalScore = 0;
+    let timeLeft = GAME_DURATION;
+    let gameActive = false;
+    let gameOver = false;
+    let gameStarted = false;
+    let fruits = [];
+    let particles = [];
+    let frameId = null;
+
+    // ----- 點擊回饋效果 -----
+    let clickEffects = [];        // {x, y, life, color}
+
+    // ----- 「共」字生成控制 -----
+    let gongSpawnedThisGame = 0;
+    let gongTargetThisGame = 0;
+    const GONG_MIN = 5;
+    const GONG_MAX = 8;
+    const GONG_CHANCE_BOOST = 0.85;
+
+    // ----- 計時器 -----
+    let lastTime = 0;
+
+    // ----- 水果類型 -----
+    const FRUIT_TYPES = [
+      { emoji: '🍎', color: '#e31b23', name: '蘋果' },
+      { emoji: '🍊', color: '#ff9f1c', name: '橘子' },
+      { emoji: '🍋', color: '#f7e05e', name: '檸檬' },
+      { emoji: '🍉', color: '#2ecc71', name: '西瓜' },
+      { emoji: '🍇', color: '#9b59b6', name: '葡萄' },
+      { emoji: '🍓', color: '#e84342', name: '草莓' },
+      { emoji: '🍌', color: '#f1c40f', name: '香蕉' },
+      { emoji: '🥝', color: '#7d9b5c', name: '奇異果' },
+      { emoji: '🍑', color: '#ff8a5c', name: '桃子' },
+      { emoji: '🍍', color: '#f5b041', name: '鳳梨' },
+      { emoji: '🥭', color: '#f39c12', name: '芒果' },
+      { emoji: '🍒', color: '#c0392b', name: '櫻桃' }
+    ];
+
+    // ----- 題目字詞 -----
+    const WORD_LIST = ['共', '還有', '餘下', '相差', '比'];
+    const WINNING_WORD = '共';
+    const DISTRACTOR_WORDS = ['還有', '餘下', '相差', '比'];
+
+    // ----- 輔助函式 -----
+    const rand = (min, max) => Math.random() * (max - min) + min;
+    const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+    // ----- 重置遊戲狀態 -----
+    function resetGame() {
+      score = 0;
+      timeLeft = GAME_DURATION;
+      gameActive = false;
+      gameOver = false;
+      gameStarted = false;
+      fruits = [];
+      particles = [];
+      clickEffects = [];
+      lastTime = 0;
+      gongSpawnedThisGame = 0;
+      gongTargetThisGame = randInt(GONG_MIN, GONG_MAX);
+      updateUI();
+      timerBox.classList.remove('warning');
+      startButton.textContent = '▶ 開始遊戲';
+      startButton.disabled = false;
+    }
+
+    // ----- 開始遊戲 -----
+    function startGame() {
+      if (gameActive) return;
+      resetGame();
+      gameActive = true;
+      gameStarted = true;
+      gameOver = false;
+      lastTime = performance.now();
+      startButton.textContent = '遊戲進行中...';
+      startButton.disabled = true;
+    }
+
+    // ----- 結束遊戲 -----
+    function endGame() {
+      gameActive = false;
+      gameOver = true;
+      totalScore += score;
+      if (totalScore < 0) totalScore = 0;
+      updateUI();
+      startButton.textContent = '▶ 再玩一次';
+      startButton.disabled = false;
+    }
+
+    // ----- 更新介面 -----
+    function updateUI() {
+      scoreSpan.textContent = Math.max(0, score);
+      timerSpan.textContent = Math.ceil(timeLeft);
+      totalSpan.textContent = Math.max(0, totalScore);
+
+      if (timeLeft <= 5 && gameActive) {
+        timerBox.classList.add('warning');
+      } else {
+        timerBox.classList.remove('warning');
+      }
+    }
+
+    // ----- 生成水果 -----
+    function spawnFruit() {
+      if (!gameActive) return;
+      if (fruits.length >= MAX_FRUITS) return;
+
+      const type = FRUIT_TYPES[randInt(0, FRUIT_TYPES.length - 1)];
+
+      let word;
+      const gongRemaining = gongTargetThisGame - gongSpawnedThisGame;
+      const gongOnScreen = fruits.filter(f => f.word === WINNING_WORD).length;
+
+      const needGong = gongRemaining > 0 && gongOnScreen < 3;
+      const gongProbability = needGong ? GONG_CHANCE_BOOST : 0.1;
+
+      if (Math.random() < gongProbability && gongRemaining > 0) {
+        word = WINNING_WORD;
+        gongSpawnedThisGame++;
+      } else {
+        word = DISTRACTOR_WORDS[randInt(0, DISTRACTOR_WORDS.length - 1)];
+      }
+
+      const x = rand(80, CW - 80);
+      const y = CH - 30;
+      const vx = rand(-2.8, 2.8);
+      const vy = rand(-8.5, -11.5);
+      const radius = FRUIT_RADIUS * rand(0.9, 1.15);
+
+      fruits.push({
+        x, y, vx, vy,
+        radius,
+        type: type,
+        word: word,
+        sliced: false,
+        rot: rand(0, Math.PI * 2),
+        rotSpeed: rand(-0.02, 0.02)
+      });
+    }
+
+    // ----- 加入水果粒子 -----
+    function addSliceParticles(fruit) {
+      const count = randInt(12, 20);
+      const baseColor = fruit.type.color;
+      for (let i = 0; i < count; i++) {
+        const angle = rand(0, Math.PI * 2);
+        const speed = rand(1.5, 5);
+        particles.push({
+          x: fruit.x,
+          y: fruit.y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed - 1.2,
+          radius: rand(3, 9),
+          color: baseColor,
+          life: 1.0,
+          decay: rand(0.015, 0.035)
+        });
+      }
+    }
+
+    // ----- 加入點擊回饋效果 -----
+    function addClickEffect(x, y, isCorrect) {
+      const color = isCorrect ? '#2ecc71' : '#e74c3c';
+      const emoji = isCorrect ? '✅' : '❌';
+      clickEffects.push({
+        x: x,
+        y: y,
+        life: 1.0,
+        color: color,
+        emoji: emoji
+      });
+    }
+
+    // ----- 處理點擊水果（「共」+1 分，其他 -1 分） -----
+    function handleFruitClick(fruit, clickX, clickY) {
+      if (fruit.sliced || !gameActive) return;
+
+      fruit.sliced = true;
+
+      const isCorrect = (fruit.word === WINNING_WORD);
+      if (isCorrect) {
+        score += 1;
+      } else {
+        score -= 1;
+      }
+      updateUI();
+
+      addSliceParticles(fruit);
+      addClickEffect(clickX, clickY, isCorrect);
+
+      const idx = fruits.indexOf(fruit);
+      if (idx !== -1) fruits.splice(idx, 1);
+    }
+
+    // ----- 更新遊戲 -----
+    function updateGame(deltaTime) {
+      if (!gameActive) return;
+
+      timeLeft -= deltaTime;
+      if (timeLeft <= 0) {
+        timeLeft = 0;
+        updateUI();
+        endGame();
+        return;
+      }
+      updateUI();
+
+      // 水果物理
+      for (let i = fruits.length - 1; i >= 0; i--) {
+        const f = fruits[i];
+        f.x += f.vx;
+        f.y += f.vy;
+        f.vy += GRAVITY;
+        f.rot += f.rotSpeed;
+
+        if (f.y - f.radius > CH + 60) {
+          fruits.splice(i, 1);
+          continue;
+        }
+        if (f.x < -120 || f.x > CW + 120) {
+          fruits.splice(i, 1);
+          continue;
+        }
+      }
+
+      // 粒子更新
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += GRAVITY * 0.6;
+        p.life -= p.decay;
+        p.radius *= 0.99;
+        if (p.life <= 0 || p.y > CH + 50 || p.x < -50 || p.x > CW + 50) {
+          particles.splice(i, 1);
+        }
+      }
+
+      // 點擊效果更新
+      for (let i = clickEffects.length - 1; i >= 0; i--) {
+        const e = clickEffects[i];
+        e.life -= 0.025;
+        e.y -= 1.5;
+        if (e.life <= 0) {
+          clickEffects.splice(i, 1);
+        }
+      }
+
+      // 生成水果
+      const gongRemaining = gongTargetThisGame - gongSpawnedThisGame;
+      const gongOnScreen = fruits.filter(f => f.word === WINNING_WORD).length;
+
+      if (frameId % 20 === 0 && fruits.length < MAX_FRUITS) {
+        spawnFruit();
+      }
+      if (gongRemaining > 0 && gongOnScreen < 2 && frameId % 12 === 0 && fruits.length < MAX_FRUITS) {
+        spawnFruit();
+      }
+      if (frameId % 37 === 0 && fruits.length < MAX_FRUITS - 2) {
+        spawnFruit();
+      }
+    }
+
+    // ----- 繪製 -----
+    function draw() {
+      ctx.clearRect(0, 0, CW, CH);
+
+      // 背景
+      ctx.fillStyle = '#1d3b2c';
+      ctx.fillRect(0, 0, CW, CH);
+      for (let i = 0; i < 6; i++) {
+        ctx.beginPath();
+        ctx.arc(120 + i * 100, 80 + (i % 3) * 60, 70, 0, Math.PI * 2);
+        ctx.fillStyle = '#2e5e42';
+        ctx.globalAlpha = 0.15;
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1.0;
+
+      // 粒子
+      for (const p of particles) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.life * 0.8;
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1.0;
+
+      // 水果
+      for (const f of fruits) {
+        ctx.save();
+        ctx.translate(f.x, f.y);
+        ctx.rotate(f.rot);
+
+        // 發光背景圓
+        const gradient = ctx.createRadialGradient(0, 0, f.radius * 0.3, 0, 0, f.radius * 1.3);
+        gradient.addColorStop(0, 'rgba(255, 255, 220, 0.3)');
+        gradient.addColorStop(1, 'rgba(255, 255, 220, 0)');
+        ctx.beginPath();
+        ctx.arc(0, 0, f.radius * 1.3, 0, Math.PI * 2);
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        // 水果 emoji
+        ctx.shadowColor = '#fef7d5';
+        ctx.shadowBlur = 22;
+        ctx.font = `${f.radius * 2.2}px 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', system-ui, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#fff4dc';
+        ctx.fillText(f.type.emoji, 0, -8);
+
+        // 字詞（統一白色 + 深色描邊）
+        const wordFontSize = Math.max(20, f.radius * 0.85);
+        ctx.font = `bold ${wordFontSize}px 'Microsoft JhengHei', 'PingFang TC', 'Noto Sans TC', sans-serif`;
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = '#000000';
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#3a2a1a';
+        ctx.lineWidth = 5;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.strokeText(f.word, 0, f.radius * 0.75);
+        ctx.fillText(f.word, 0, f.radius * 0.75);
+
+        ctx.restore();
+      }
+
+      // 點擊回饋效果
+      for (const e of clickEffects) {
+        const alpha = Math.max(0, e.life);
+        ctx.globalAlpha = alpha;
+        ctx.font = `bold 48px 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', system-ui, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = e.color;
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = e.color;
+        ctx.fillText(e.emoji, e.x, e.y);
+      }
+      ctx.globalAlpha = 1.0;
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = 'transparent';
+
+      // 尚未開始的提示畫面
+      if (!gameActive && !gameStarted && !gameOver) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(0, 0, CW, CH);
+
+        ctx.font = 'bold 44px "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif';
+        ctx.fillStyle = '#fceea7';
+        ctx.shadowColor = '#b06d2c';
+        ctx.shadowBlur = 16;
+        ctx.textAlign = 'center';
+        ctx.fillText('準備好了嗎？', CW / 2, CH / 2 - 60);
+
+        ctx.font = 'bold 30px "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif';
+        ctx.fillStyle = '#ffd700';
+        ctx.fillText('點擊「共」+1 分', CW / 2, CH / 2 - 5);
+
+        ctx.fillStyle = '#ff6b6b';
+        ctx.fillText('點錯字詞 -1 分', CW / 2, CH / 2 + 45);
+
+        ctx.font = '28px "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif';
+        ctx.fillStyle = '#ffd966';
+        ctx.fillText('按「開始遊戲」挑戰 15 秒！', CW / 2, CH / 2 + 105);
+        ctx.shadowBlur = 0;
+      }
+
+      // 遊戲結束覆蓋層
+      if (gameOver) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(0, 0, CW, CH);
+
+        ctx.font = 'bold 52px "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif';
+        ctx.fillStyle = '#fceea7';
+        ctx.shadowColor = '#b45f06';
+        ctx.shadowBlur = 16;
+        ctx.textAlign = 'center';
+        ctx.fillText('時間到！', CW / 2, CH / 2 - 40);
+
+        ctx.font = 'bold 48px "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif';
+        ctx.fillStyle = '#ffd966';
+        ctx.fillText('🎯 ' + Math.max(0, score) + ' 分 🎯', CW / 2, CH / 2 + 40);
+
+        ctx.font = '28px "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif';
+        ctx.fillStyle = '#7ec8e3';
+        ctx.fillText('本局得分：' + Math.max(0, score) + '　|　總累積：' + Math.max(0, totalScore), CW / 2, CH / 2 + 110);
+        ctx.shadowBlur = 0;
+      }
+    }
+
+    // ----- 遊戲迴圈 -----
+    function gameLoop(timestamp) {
+      if (!lastTime) lastTime = timestamp;
+      const deltaTime = (timestamp - lastTime) / 1000;
+      lastTime = timestamp;
+      const safeDelta = Math.min(deltaTime, 0.1);
+
+      if (gameActive) {
+        updateGame(safeDelta);
+      } else if (gameOver) {
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += GRAVITY * 0.6;
+          p.life -= p.decay;
+          if (p.life <= 0) particles.splice(i, 1);
+        }
+        for (let i = clickEffects.length - 1; i >= 0; i--) {
+          const e = clickEffects[i];
+          e.life -= 0.025;
+          e.y -= 1.5;
+          if (e.life <= 0) clickEffects.splice(i, 1);
+        }
+      }
+
+      draw();
+      frameId++;
+      requestAnimationFrame(gameLoop);
+    }
+
+    // ----- 點擊 / 觸控處理 -----
+    function handleCanvasClick(e) {
+      if (!gameActive) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = CW / rect.width;
+      const scaleY = CH / rect.height;
+
+      let clientX, clientY;
+      if (e.changedTouches) {
+        if (e.changedTouches.length === 0) return;
+        clientX = e.changedTouches[0].clientX;
+        clientY = e.changedTouches[0].clientY;
+        e.preventDefault();
+      } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+
+      const clickX = (clientX - rect.left) * scaleX;
+      const clickY = (clientY - rect.top) * scaleY;
+
+      if (clickX < 0 || clickX > CW || clickY < 0 || clickY > CH) return;
+
+      // 從最上層（最後生成）的水果開始檢查
+      for (let i = fruits.length - 1; i >= 0; i--) {
+        const f = fruits[i];
+        if (f.sliced) continue;
+
+        const dx = f.x - clickX;
+        const dy = f.y - clickY;
+        const dist = Math.hypot(dx, dy);
+        if (dist < CLICK_RADIUS) {
+          handleFruitClick(f, clickX, clickY);
+          return; // 一次點擊只處理一個水果
+        }
+      }
+    }
+
+    // ----- 初始化 -----
+    function init() {
+      resetGame();
+
+      // 使用 pointerdown 統一處理滑鼠與觸控
+      canvas.addEventListener('pointerdown', handleCanvasClick);
+      // 避免 touch 事件造成雙重觸發
+      canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+      }, { passive: false });
+
+      startButton.addEventListener('click', () => {
+        startGame();
+      });
+
+      if (frameId) cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(gameLoop);
+    }
+
+    init();
+  })();
+</script>
+</body>
+</html>
